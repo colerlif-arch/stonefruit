@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+# Block pushing if raw database artifacts are tracked in Git.
+blocked_files="$(git ls-files -- 'data-layer/raw/*.db' 'data-layer/raw/*.sqlite' 'data-layer/raw/*.sqlite3' || true)"
+if [ -n "${blocked_files}" ]; then
+  echo "Push blocked: raw database files are tracked in Git."
+  echo "Remove these files from tracking before pushing:"
+  echo "${blocked_files}"
+  echo "Example fix:"
+  echo "  git rm --cached data-layer/raw/<file>"
+  echo "  git commit -m \"Stop tracking raw DB artifacts\""
+  exit 1
+fi
+
+exit 0

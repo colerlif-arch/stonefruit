@@ -2,6 +2,47 @@ const Database = require("better-sqlite3");
 const fs = require("fs");
 const path = require("path");
 
+function ensureSchema(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS items (
+      item_id TEXT PRIMARY KEY,
+      access_token TEXT NOT NULL,
+      institution_id TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS transactions (
+      transaction_id TEXT PRIMARY KEY,
+      account_id TEXT,
+      item_id TEXT,
+      pending INTEGER,
+      pending_transaction_id TEXT,
+      authorized_date TEXT,
+      date TEXT,
+      amount REAL,
+      iso_currency_code TEXT,
+      name TEXT,
+      personal_finance_category_json TEXT,
+      location_json TEXT,
+      payment_meta_json TEXT,
+      raw_json TEXT,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS transaction_sync_state (
+      item_id TEXT PRIMARY KEY,
+      cursor TEXT,
+      has_more INTEGER DEFAULT 0,
+      last_sync_ts TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_item_id ON transactions(item_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_updated_at ON transactions(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_items_updated_at ON items(updated_at);
+  `);
+}
+
 function resolveDbPath() {
   // Docker sets SQLITE_DB_PATH=/data/plaid.db.
   // For local runs, default to repo data-layer/raw/plaid.db.
@@ -14,6 +55,7 @@ function openDb() {
   const db = new Database(dbPath);
   db.pragma("foreign_keys = OFF");
   db.pragma("journal_mode = WAL");
+  ensureSchema(db);
   db._resolvedPath = dbPath;
   return db;
 }

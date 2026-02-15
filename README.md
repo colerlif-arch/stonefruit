@@ -1,21 +1,36 @@
 # stonefruit
-Stonefruit is a private, single-user personal analytics system that computes deterministic summaries and time-sensitive prompts based on explicit rules and derived state.
-Primary use cases
-- Personal finance analytics (transactions, cash flow, recurring expenses)
-- Optional contextual analytics (photos/metadata, location logs, calendar events)
+Stonefruit is a private, single-user personal analytics system. The project is structured so data sources are independent ingestors, derivations are deterministic transforms over raw facts, and outputs are read models or notifications.
 
-Plaid data usage
-Stonefruit uses Plaid (Transactions) to retrieve read-only transaction data after authentication via Plaid Link. Transactions are stored securely on a private backend and processed to compute recurring charges, income cadence, cash flow trends, and discretionary spending. The system does not initiate payments or transfers, does not modify accounts, and does not share or sell data. Access tokens are stored server-side and are never exposed to clients.
+## Current status
+- Active ingestor: Plaid Transactions
+- Active app surface: Node API + React frontend
+- Derivation and output layers: scaffolded for incremental build-out
 
-Architecture (high level)
-1) Ingestion: periodic sync or file-watchers append raw events to storage
-2) Derivation: deterministic normalization/classification and aggregate rollups
-3) Output: optional notifications or on-demand query responses
+## Repository structure
+```text
+apps/
+  frontend/                     # temporary UI client (planned phase-out)
 
-Security
-- Tokens stored only on the backend
-- No financial credentials stored
-- Local/private deployment; not a public service
+data-layer/
+  ingestors/
+    plaid/                      # Plaid API ingestion service (Node)
+    gps/                        # planned ingestor
+    photo-metadata/             # planned ingestor
+  raw/
+    plaid.db                    # raw ingestion store (SQLite)
 
-Status
-Active development; intended for personal use only.
+derivation-layer/               # deterministic transforms and rollups (planned)
+output-layer/                   # read models, alerts, and serving layer (planned)
+docs/
+  architecture.md               # conventions and design guidance
+scripts/
+  sqlite_cli.py                 # DB inspection helper
+```
+
+## Runtime
+- API: `http://localhost:8000`
+- UI: `http://localhost:3000`
+- Compose services: `node`, `frontend`
+
+## Plaid data usage
+Stonefruit uses Plaid (Transactions) to retrieve read-only transaction data after authentication via Plaid Link. Transactions are stored on a private backend and persisted for downstream derivation. The system does not initiate payments or transfers, does not modify accounts, and does not share or sell data. Access tokens remain server-side.

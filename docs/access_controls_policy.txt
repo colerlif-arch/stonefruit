@@ -1,0 +1,56 @@
+Stonefruit Access Controls Policy
+Effective Date: February 15, 2026
+Owner: Stonefruit Operator
+
+1) Purpose
+This policy defines how access to Stonefruit systems and data is granted, reviewed, and revoked.
+
+2) Scope
+This policy applies to:
+- Source code repositories
+- Runtime services and infrastructure
+- Secrets and credentials
+- Raw and derived data stores
+
+3) Access Principles
+- Least privilege: only minimum required access is granted.
+- Need-to-know: data access is restricted to valid operational purpose.
+- Default deny: access is denied unless explicitly granted.
+- Accountability: access is attributable to a specific user/account.
+
+4) Authentication and Identity
+- Administrative access uses unique user identity.
+- Shared credentials are not used for normal operations.
+- MFA is enabled where supported (GitHub, providers, dashboards).
+
+5) Authorization Model
+Current operating model (single-operator):
+- One owner-level operator administers code and runtime.
+- End users do not directly access backend data stores.
+- Plaid access tokens remain server-side only.
+
+Future multi-operator model:
+- Role-based access control with distinct admin/reviewer/read-only roles.
+
+6) Provisioning and Approval
+- New access requires owner approval.
+- Access grants are documented with scope and reason.
+- Temporary access should include an expiration date.
+
+7) Review and Revocation
+- Access rights are reviewed at least quarterly.
+- Access is revoked immediately upon role change, no longer needed access, or suspected compromise.
+- Leaked credentials/tokens are revoked and rotated immediately.
+
+8) Enforcement
+Enforcement controls include:
+- Git ignore protections for raw artifacts and local secrets
+- Pre-commit secret scanning
+- Incident response procedure for credential exposure
+
+9) Exceptions
+Exceptions must be documented with:
+- Justification
+- Risk accepted
+- Owner approval
+- Expiration date

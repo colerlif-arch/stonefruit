@@ -1,0 +1,73 @@
+Stonefruit Data Retention and Disposal Policy
+Effective Date: February 15, 2026
+Owner: Stonefruit Operator
+
+1) Purpose
+This policy defines retention and secure disposal requirements for Stonefruit data and credentials.
+
+2) Scope
+Applies to:
+- Secrets and credentials
+- Raw ingested data
+- Derived data and read models
+- Logs, exports, and backups
+
+3) Data Categories
+- Credentials/tokens (API keys, access tokens, client secrets)
+- Raw source data (financial, location, metadata)
+- Derived analytics data
+- Operational logs
+- Backups and exports
+
+4) Retention Principles
+- Retain data only as long as needed for operational and legal purposes.
+- Minimize retained sensitive data where possible.
+- Separate raw storage from derived and output layers.
+
+5) Retention Baseline
+Unless legal obligations require otherwise:
+- Credentials/tokens: retain only while active and required.
+- Raw data: retain only for ingestion validation, derivation, and required auditability.
+- Derived data: retain according to product utility and legal requirements.
+- Logs: retain minimally and rotate regularly.
+- Backups: retain according to recovery needs with expiration dates.
+
+6) Disposal Triggers
+Dispose data when:
+- No longer needed for the original purpose
+- Retention period expires
+- User/legal deletion requirement applies
+- Credentials/tokens are revoked or compromised
+
+7) Disposal Procedures
+7.1 Credentials/Tokens
+- Revoke at provider endpoint/dashboard.
+- Remove from local stores and non-required logs.
+- Rotate replacements as needed.
+
+7.2 Raw/Derived Data
+- Delete data from primary stores when no longer required.
+- Remove obsolete local databases, exports, and backups on schedule.
+- Ensure sensitive artifacts are excluded from source control.
+
+7.3 Source Control Exposure Response
+If sensitive data is committed:
+1. Revoke exposed tokens/keys immediately.
+2. Remove sensitive files from tracking.
+3. Rewrite history and force-push sanitized branch.
+4. Verify no exposed values remain in reachable history.
+
+8) Compliance
+- Retention and disposal decisions must comply with applicable law and contractual obligations.
+- This policy is operational guidance and not legal advice.
+
+9) Verification and Audit
+- Periodic checks confirm ignored sensitive paths remain ignored.
+- Secret scanning is enforced pre-commit.
+- Incident records include retention/disposal remediation details.
+
+10) Enforcement
+Current enforcement controls include:
+- .gitignore protections for raw artifacts
+- Pre-commit secret scanning
+- Credential/token revocation process

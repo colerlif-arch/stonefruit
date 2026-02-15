@@ -1,0 +1,59 @@
+Stonefruit Information Security Policy
+Effective Date: February 15, 2026
+Owner: Stonefruit Operator
+
+1) Purpose
+This policy defines administrative, technical, and operational security controls for Stonefruit.
+
+2) Scope
+Applies to all Stonefruit code, environments, credentials, logs, and data stores.
+
+3) Security Objectives
+- Confidentiality: protect financial and personal information.
+- Integrity: prevent unauthorized data modification.
+- Availability: maintain reliable ingestion and processing operations.
+
+4) Governance
+- The owner is accountable for security control implementation and policy maintenance.
+- Security-relevant changes are documented in version control.
+- Policy exceptions are time-bound and documented.
+
+5) Core Controls
+5.1 Secrets Management
+- Credentials and tokens are never committed to source control.
+- Secrets are stored in environment variables or a secure secret store.
+- Exposed credentials/tokens are revoked and rotated immediately.
+
+5.2 Secure Development
+- Developer reviews staged diffs before commit.
+- Pre-commit secret scanning is required.
+- Sensitive runtime artifacts (raw DBs, dumps, exports) are ignored by Git.
+
+5.3 Data Protection
+- Data collection is minimized to operational need.
+- Access tokens are server-side only and not exposed to clients.
+- Raw and derived data are separated by layer and purpose.
+
+5.4 Logging and Monitoring
+- Logs must avoid plaintext secrets.
+- Security events are logged (failed access, revocations, remediation actions).
+
+5.5 Dependency and Patch Management
+- Dependencies are updated routinely.
+- Critical security issues are remediated promptly.
+
+6) Incident Response
+When an incident is suspected:
+1. Contain: revoke or disable affected credentials.
+2. Eradicate: remove exposed artifacts and fix root cause.
+3. Recover: restore service in secure state.
+4. Document: timeline, impact, and corrective action.
+5. Improve: update controls to prevent recurrence.
+
+7) Business Continuity
+- Critical configurations and required operational data are backed up.
+- Recovery steps are documented and periodically tested.
+
+8) Compliance and Review
+- Policy is reviewed at least annually or after a significant security event.
+- Controls are updated as legal, technical, or operational requirements change.

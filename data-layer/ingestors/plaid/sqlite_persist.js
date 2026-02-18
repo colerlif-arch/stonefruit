@@ -1,6 +1,7 @@
 const Database = require("better-sqlite3");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 function ensureSchema(db) {
   db.exec(`
@@ -41,6 +42,17 @@ function ensureSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_transactions_updated_at ON transactions(updated_at);
     CREATE INDEX IF NOT EXISTS idx_items_updated_at ON items(updated_at);
   `);
+    // Ensure dedupe fingerprint column and unique index exist.
+    const cols = db.prepare("PRAGMA table_info(transactions)").all();
+    if (!cols.find((c) => c.name === "fingerprint")) {
+      db.exec("ALTER TABLE transactions ADD COLUMN fingerprint TEXT");
+    }
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_fingerprint ON transactions(fingerprint)");
+    // Ensure content_hash column for content-based dedupe and an index for lookups.
+    if (!cols.find((c) => c.name === "content_hash")) {
+      db.exec("ALTER TABLE transactions ADD COLUMN content_hash TEXT");
+    }
+    db.exec("CREATE INDEX IF NOT EXISTS idx_transactions_content_hash ON transactions(content_hash)");
 }
 
 function resolveDbPath() {
@@ -70,18 +82,19 @@ function upsertTransactions({ itemId, added = [], modified = [], removed = [], n
       transaction_id, account_id, item_id, pending, pending_transaction_id,
       authorized_date, date, amount, iso_currency_code,
       name,
-      personal_finance_category_json, location_json, payment_meta_json, raw_json,
+      personal_finance_category_json, location_json, payment_meta_json, raw_json, fingerprint, content_hash,
       updated_at
     ) VALUES (
       @transaction_id, @account_id, @item_id, @pending, @pending_transaction_id,
       @authorized_date, @date, @amount, @iso_currency_code,
       @name,
-      @personal_finance_category_json, @location_json, @payment_meta_json, @raw_json,
+      @personal_finance_category_json, @location_json, @payment_meta_json, @raw_json, @fingerprint, @content_hash,
       datetime('now')
     )
     ON CONFLICT(transaction_id) DO UPDATE SET
       account_id=excluded.account_id,
-      item_id=excluded.item_id,
+      -- preserve original item_id on conflict to avoid reassigning transactions when items are relinked
+      item_id=item_id,
       pending=excluded.pending,
       pending_transaction_id=excluded.pending_transaction_id,
       authorized_date=excluded.authorized_date,
@@ -93,6 +106,8 @@ function upsertTransactions({ itemId, added = [], modified = [], removed = [], n
       location_json=excluded.location_json,
       payment_meta_json=excluded.payment_meta_json,
       raw_json=excluded.raw_json,
+      fingerprint=excluded.fingerprint,
+      content_hash=excluded.content_hash,
       updated_at=datetime('now');
   `);
 
@@ -122,11 +137,45 @@ function upsertTransactions({ itemId, added = [], modified = [], removed = [], n
     location_json: tx.location ? JSON.stringify(tx.location) : null,
     payment_meta_json: tx.payment_meta ? JSON.stringify(tx.payment_meta) : null,
     raw_json: JSON.stringify(tx),
+    fingerprint: tx.transaction_id,
+    // content_hash intentionally excludes `account_id` so that the same logical
+    // transaction from a relinked item (which may change account/item ids) still
+    // deduplicates on ingest. It uses date, amount, currency, normalized name,
+    // and payment_meta when available.
+    content_hash: crypto.createHash('sha256')
+      .update([
+        tx.date || '',
+        String(tx.amount || ''),
+        tx.iso_currency_code || '',
+        (tx.name || '').trim().toLowerCase(),
+        tx.payment_meta ? JSON.stringify(tx.payment_meta) : '',
+      ].join('|'))
+      .digest('hex'),
   });
 
+  const findByFingerprint = db.prepare(`SELECT transaction_id FROM transactions WHERE fingerprint = ? LIMIT 1`);
+  const findByContentHash = db.prepare(`SELECT transaction_id FROM transactions WHERE content_hash = ? LIMIT 1`);
+
   const txn = db.transaction(() => {
-    for (const t of added) insertedOrUpdated += upsertTx.run(normalize(t)).changes;
-    for (const t of modified) insertedOrUpdated += upsertTx.run(normalize(t)).changes;
+    for (const t of added) {
+      const norm = normalize(t);
+      // If transaction_id exists and matches an existing row, upsert will update.
+      // If transaction_id differs but content_hash matches an existing row, treat as duplicate and skip.
+      const existingByFingerprint = norm.fingerprint ? findByFingerprint.get(norm.fingerprint) : null;
+      if (existingByFingerprint && existingByFingerprint.transaction_id !== norm.transaction_id) {
+        continue;
+      }
+      const existingByContent = findByContentHash.get(norm.content_hash);
+      if (existingByContent && existingByContent.transaction_id !== norm.transaction_id) {
+        // Same content seen before under a different transaction_id — skip to avoid duplicates from relinks.
+        continue;
+      }
+      insertedOrUpdated += upsertTx.run(norm).changes;
+    }
+    for (const t of modified) {
+      const norm = normalize(t);
+      insertedOrUpdated += upsertTx.run(norm).changes;
+    }
     for (const r of removed) deleted += delTx.run(r.transaction_id).changes;
     upsertCursor.run(itemId, nextCursor || "");
   });
@@ -214,6 +263,22 @@ function getLatestValidItem() {
   }
 }
 
+function getTransactionSyncCursor(itemId) {
+  if (!itemId) return null;
+  const db = openDb();
+  try {
+    const row = db.prepare(`
+      SELECT cursor
+      FROM transaction_sync_state
+      WHERE item_id = ?
+      LIMIT 1
+    `).get(itemId);
+    return row?.cursor || null;
+  } finally {
+    db.close();
+  }
+}
+
 function getTransactionsPersistenceDebug(sampleSize = 5) {
   const db = openDb();
   const safeSampleSize = Number.isInteger(sampleSize) && sampleSize > 0 ? sampleSize : 5;
@@ -242,4 +307,4 @@ function getTransactionsPersistenceDebug(sampleSize = 5) {
   return payload;
 }
 
-module.exports = { upsertTransactions, upsertItem, getItemIdByAccessToken, getLatestItem, getLatestValidItem, getTransactionsPersistenceDebug };
+module.exports = { upsertTransactions, upsertItem, getItemIdByAccessToken, getLatestItem, getLatestValidItem, getTransactionSyncCursor, getTransactionsPersistenceDebug };

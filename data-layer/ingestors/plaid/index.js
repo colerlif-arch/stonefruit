@@ -2,7 +2,7 @@
 
 // read env vars from .env file
 require('dotenv').config();
-const { upsertTransactions, upsertItem, getItemIdByAccessToken, getLatestItem, getLatestValidItem, getTransactionsPersistenceDebug } = require("./sqlite_persist");
+const { upsertTransactions, upsertItem, getItemIdByAccessToken, getLatestItem, getLatestValidItem, getTransactionSyncCursor, getTransactionsPersistenceDebug } = require("./sqlite_persist");
 const { Configuration, PlaidApi, Products, PlaidEnvironments, CraCheckReportProduct } = require('plaid');
 const util = require('util');
 const { v4: uuidv4 } = require('uuid');
@@ -481,8 +481,13 @@ app.get('/api/transactions', function (request, response, next) {
         has_access_token: Boolean(accessTokenForSync),
         persistence_item_id: persistenceItemId,
       });
-      // Set cursor to empty to receive all historical updates
-      let cursor = null;
+      // Resume from the last persisted sync cursor for this Plaid item.
+      // If absent (first sync for item), Plaid expects null to backfill history.
+      let cursor = getTransactionSyncCursor(persistenceItemId);
+      console.log('[transactions] loaded persisted cursor', {
+        item_id: persistenceItemId || null,
+        has_cursor: Boolean(cursor),
+      });
 
       // New transaction updates since "cursor"
       let added = [];
